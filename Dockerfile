@@ -1,15 +1,15 @@
-# 1. Base 이미지 (Node.js 22 LTS)
+# 1. Global ARG 선언
+ARG NOTION_PAGE_ID
+
+# 2. Base 이미지 (Node.js 22 LTS)
 FROM node:22-alpine AS base
 
-# 2. 의존성 설치 단계
+# 3. 의존성 설치 단계
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# 패키지 매니저 파일들 복사
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
-
-# 프로젝트에 맞는 패키지 매니저 자동 선택 및 설치
 RUN \
   if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
   elif [ -f package-lock.json ]; then npm ci; \
@@ -17,26 +17,32 @@ RUN \
   else npm install; \
   fi
 
-# 3. 빌드 단계
+# 4. 빌드 단계
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
 
-# 빌드 타임 환경 변수
+# Global ARG 상속 및 ENV 설정
 ARG NOTION_PAGE_ID
 ENV NOTION_PAGE_ID=${NOTION_PAGE_ID}
 
+RUN if [ -z "$NOTION_PAGE_ID" ]; then echo "FATAL ERROR: NOTION_PAGE_ID is not provided!"; exit 1; fi
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+RUN echo "Building with Notion Page ID: ${NOTION_PAGE_ID}"
 RUN npm run build
 
-# 4. 실행 단계 (Runner)
+# 5. 실행 단계 (Runner)
 FROM base AS runner
 WORKDIR /app
 
-# 문법 경고 해결: ENV KEY=VALUE 형식 사용
 ENV NODE_ENV=production
 ENV PORT=3100
 ENV HOSTNAME="0.0.0.0"
+
+ARG NOTION_PAGE_ID
+ENV NOTION_PAGE_ID=${NOTION_PAGE_ID}
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
