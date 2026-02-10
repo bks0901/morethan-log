@@ -44,13 +44,14 @@ export const getPosts = async () => {
   const data = []
   for (let i = 0; i < pageIds.length; i++) {
     const pageId = pageIds[i]
-    const u = idToUuid(pageId)
-    const r = uuidToId(u)
-    const b = block?.[u] ?? block?.[r] ?? block?.[pageId]
+
+    const uuid = pageId.includes("-") ? pageId : idToUuid(pageId)
+    const raw = uuidToId(uuid)
+    const b = block?.[raw] ?? block?.[uuid] ?? block?.[pageId]
 
     const properties = (await getPageProperties(pageId, block, schema)) || {}
-    properties.id = u
 
+    properties.id = uuid
     const ct = b?.value?.created_time
     properties.createdTime = ct ? new Date(ct).toISOString() : null
     properties.fullWidth = (b?.value?.format as any)?.page_full_width ?? false
