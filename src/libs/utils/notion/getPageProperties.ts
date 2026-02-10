@@ -22,8 +22,13 @@ async function getPageProperties(
     const [key, val]: any = rawProperties[i]
     properties.id = uuid // 통일해두는 게 편함
 
-    if (schema[key]?.type && !excludeProperties.includes(schema[key].type)) {
-      properties[schema[key].name] = getTextContent(val)
+    const s = schema?.[key]
+    if (!s) {
+      console.log("[schema-miss]", { id: uuid, key })
+    }
+
+    if (s.type && !excludeProperties.includes(s.type)) {
+      properties[s.name] = getTextContent(val)
     } else {
       switch (schema[key]?.type) {
         case "file": {
