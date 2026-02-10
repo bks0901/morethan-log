@@ -61,6 +61,7 @@ const DetailPage: NextPageWithLayout = () => {
     CONFIG.ogImageGenerateURL ??
     `${CONFIG.ogImageGenerateURL}/${encodeURIComponent(post.title)}.png`
 
+  const type = Array.isArray(post?.type) ? post.type[0] : "post"
   const rawDate = post.date?.start_date || post.createdTime || null
 
   const d = rawDate ? new Date(rawDate) : null
@@ -72,7 +73,7 @@ const DetailPage: NextPageWithLayout = () => {
     date: isoDate,
     image: image,
     description: post.summary || "",
-    type: post.type[0],
+    type,
     url: `${CONFIG.link}/${post.slug}`,
   }
 

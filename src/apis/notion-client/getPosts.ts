@@ -54,6 +54,16 @@ export const getPosts = async () => {
     data.push(properties)
   }
 
+  console.log(
+    "[posts check]",
+    "total=",
+    data.length,
+    "missing type=",
+    data.filter((p) => !p?.type?.length).length,
+    "missing date=",
+    data.filter((p) => !p?.date?.start_date).length
+  )
+
   // Sort by date
   data.sort((a: any, b: any) => {
     const dateA: any = new Date(a?.date?.start_date || a.createdTime)
