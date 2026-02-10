@@ -12,7 +12,13 @@ import { TPosts } from "src/types"
 
 // TODO: react query를 사용해서 처음 불러온 뒤로는 해당데이터만 사용하도록 수정
 export const getPosts = async () => {
-  const rawId = CONFIG.notionConfig.pageId as string
+  const rawId =
+    process.env["NOTION_PAGE_ID"] || (CONFIG.notionConfig.pageId as string)
+
+  if (!rawId) {
+    throw new Error("NOTION_PAGE_ID is missing (env and config are empty)")
+  }
+
   const id = idToUuid(rawId)
 
   const api = new NotionAPI()
