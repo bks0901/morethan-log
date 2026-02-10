@@ -7,7 +7,7 @@ const CONFIG = {
     bio: "지식은 넓어져가고, 지혜는 가다듬는다..",
     email: "bks0901@gmail.com",
     linkedin: "",
-    github: "https://github.com/bks0901",
+    github: "bks0901",
     instagram: "",
   },
   projects: [
