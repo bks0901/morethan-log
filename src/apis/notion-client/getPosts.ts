@@ -41,6 +41,17 @@ export const getPosts = async () => {
 
   // Construct Data
   const pageIds = getAllPageIds(response)
+
+  const keys = Object.keys(block || {})
+  console.log("[dbg] blockKey sample:", keys.slice(0, 3))
+  console.log(
+    "[dbg] blockKey has hyphen?:",
+    keys[0]?.includes("-"),
+    "len:",
+    keys[0]?.length
+  )
+  console.log("[dbg] pageId sample:", pageIds[0])
+
   const data = []
   for (let i = 0; i < pageIds.length; i++) {
     const pageId = pageIds[i]
@@ -58,8 +69,6 @@ export const getPosts = async () => {
 
     data.push(properties)
   }
-
-  console.log("[posts check]", "total=", data.length, "data=", data)
 
   // Sort by date
   data.sort((a: any, b: any) => {
