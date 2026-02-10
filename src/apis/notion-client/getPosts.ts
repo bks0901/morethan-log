@@ -6,19 +6,26 @@ import getAllPageIds from "src/libs/utils/notion/getAllPageIds"
 import getPageProperties from "src/libs/utils/notion/getPageProperties"
 import { TPosts } from "src/types"
 
-const normalizeBlockMap = (block: any) => {
+import type { Block, BlockMap } from "notion-types"
+
+export type WrappedNotionRecord<T> = {
+  spaceId?: string
+  value: { value: T; role?: any } | T
+  role?: any
+}
+
+export type WrappedBlockMap = Record<string, WrappedNotionRecord<Block>>
+
+export function normalizeBlockMap(block: WrappedBlockMap): BlockMap {
   const out: any = {}
-  for (const [k, rec] of Object.entries(block || {})) {
+  for (const [id, rec] of Object.entries(block || {})) {
     const r: any = rec
-    // notion-client가 { value: { value: Block, role }, spaceId } 형태로 주는 경우
     const inner = r?.value?.value
-    if (inner) {
-      out[k] = { ...r, value: inner } // ✅ value를 Block으로 평탄화
-    } else {
-      out[k] = r
-    }
+    out[id] = inner
+      ? { role: r?.value?.role ?? r?.role ?? "reader", value: inner }
+      : r
   }
-  return out
+  return out as BlockMap
 }
 
 /**
@@ -42,6 +49,9 @@ export const getPosts = async () => {
   const block = normalizeBlockMap(response.block)
   const rawMetadata =
     block[id]?.value || (Object.values(block)[0] as any)?.value
+
+  // const block = response.block
+  // const rawMetadata = block[id]?.value || Object.values(block)[0].value
 
   const collectionId = Object.keys(response.collection)[0]
   const collection = response.collection[collectionId]?.value
@@ -75,9 +85,10 @@ export const getPosts = async () => {
     properties.createdTime = ct ? new Date(ct).toISOString() : null
     properties.fullWidth = (b?.value?.format as any)?.page_full_width ?? false
 
-    // const pid = pageIds[0]
-    // console.log("[dbg] block[pid] raw =", block?.[pid])
-    // console.log("[dbg] block[pid] keys =", Object.keys(block?.[pid] || {}))
+    const pid = pageIds[0]
+    console.log("[dbg] block[pid] raw =", block?.[pid])
+    console.log("[dbg] block[pid] properties =", block?.[pid].value)
+    console.log("[dbg] block[pid] keys =", Object.keys(block?.[pid] || {}))
 
     data.push(properties)
   }
