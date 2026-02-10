@@ -87,7 +87,7 @@ export const getPosts = async () => {
 
     const pid = pageIds[0]
     console.log("[dbg] block[pid] raw =", block?.[pid])
-    console.log("[dbg] block[pid] properties =", block?.[pid].value)
+    console.log("[dbg] block[pid] properties =", block?.[pid].value.properties)
     console.log("[dbg] block[pid] keys =", Object.keys(block?.[pid] || {}))
 
     data.push(properties)
