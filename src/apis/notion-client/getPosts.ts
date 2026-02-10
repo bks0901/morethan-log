@@ -1,6 +1,6 @@
 import { CONFIG } from "site.config"
 import { NotionAPI } from "notion-client"
-import { idToUuid } from "notion-utils"
+import { idToUuid, uuidToId } from "notion-utils"
 
 import getAllPageIds from "src/libs/utils/notion/getAllPageIds"
 import getPageProperties from "src/libs/utils/notion/getPageProperties"
@@ -43,13 +43,17 @@ export const getPosts = async () => {
   const pageIds = getAllPageIds(response)
   const data = []
   for (let i = 0; i < pageIds.length; i++) {
-    const id = pageIds[i]
-    const properties = (await getPageProperties(id, block, schema)) || null
+    const pageId = pageIds[i]
+    const u = idToUuid(pageId)
+    const r = uuidToId(u)
+    const b = block?.[u] ?? block?.[r] ?? block?.[pageId]
 
-    properties.id = id
-    properties.createdTime = new Date(block[id].value?.created_time).toString()
-    properties.fullWidth =
-      (block[id].value?.format as any)?.page_full_width ?? false
+    const properties = (await getPageProperties(pageId, block, schema)) || {}
+    properties.id = u
+
+    const ct = b?.value?.created_time
+    properties.createdTime = ct ? new Date(ct).toISOString() : null
+    properties.fullWidth = (b?.value?.format as any)?.page_full_width ?? false
 
     data.push(properties)
   }

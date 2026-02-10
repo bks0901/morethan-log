@@ -1,6 +1,6 @@
-import { getTextContent, getDateValue } from "notion-utils"
 import { NotionAPI } from "notion-client"
 import { BlockMap, CollectionPropertySchemaMap } from "notion-types"
+import { getTextContent, getDateValue, idToUuid, uuidToId } from "notion-utils"
 import { customMapImageUrl } from "./customMapImageUrl"
 
 async function getPageProperties(
@@ -9,23 +9,30 @@ async function getPageProperties(
   schema: CollectionPropertySchemaMap
 ) {
   const api = new NotionAPI()
-  const rawProperties = Object.entries(block?.[id]?.value?.properties || [])
+
+  const uuid = idToUuid(id)
+  const raw = uuidToId(uuid)
+  const b = block?.[uuid] ?? block?.[raw] ?? block?.[id]
+  const rawProperties = Object.entries(b?.value?.properties || [])
+
   const excludeProperties = ["date", "select", "multi_select", "person", "file"]
   const properties: any = {}
+
   for (let i = 0; i < rawProperties.length; i++) {
     const [key, val]: any = rawProperties[i]
-    properties.id = id
+    properties.id = uuid // 통일해두는 게 편함
+
     if (schema[key]?.type && !excludeProperties.includes(schema[key].type)) {
       properties[schema[key].name] = getTextContent(val)
     } else {
       switch (schema[key]?.type) {
         case "file": {
           try {
-            const Block = block?.[id].value
+            const Block = b?.value
             const url: string = val[0][1][0][1]
-            const newurl = customMapImageUrl(url, Block)
+            const newurl = customMapImageUrl(url, Block as any)
             properties[schema[key].name] = newurl
-          } catch (error) {
+          } catch {
             properties[schema[key].name] = undefined
           }
           break
@@ -36,23 +43,18 @@ async function getPageProperties(
           properties[schema[key].name] = dateProperty
           break
         }
-        case "select": {
-          const selects = getTextContent(val)
-          if (selects[0]?.length) {
-            properties[schema[key].name] = selects.split(",")
-          }
-          break
-        }
+        case "select":
         case "multi_select": {
           const selects = getTextContent(val)
-          if (selects[0]?.length) {
-            properties[schema[key].name] = selects.split(",")
+          if (selects?.length) {
+            properties[schema[key].name] = selects
+              .split(",")
+              .map((s) => s.trim())
           }
           break
         }
         case "person": {
           const rawUsers = val.flat()
-
           const users = []
           for (let i = 0; i < rawUsers.length; i++) {
             if (rawUsers[i][0][1]) {
@@ -60,26 +62,23 @@ async function getPageProperties(
               const res: any = await api.getUsers(userId)
               const resValue =
                 res?.recordMapWithRoles?.notion_user?.[userId[1]]?.value
-              const user = {
+              users.push({
                 id: resValue?.id,
                 name:
                   resValue?.name ||
                   `${resValue?.family_name}${resValue?.given_name}` ||
                   undefined,
                 profile_photo: resValue?.profile_photo || null,
-              }
-              users.push(user)
+              })
             }
           }
           properties[schema[key].name] = users
           break
         }
-        default:
-          break
       }
     }
   }
+
   return properties
 }
-
 export { getPageProperties as default }
