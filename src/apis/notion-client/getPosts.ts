@@ -19,15 +19,15 @@ export const getPosts = async () => {
   const response = await api.getPage(id)
 
   const block = response.block
-  const collection = Object.values(response.collection)[0]?.value
-  const schema = collection?.schema
+  const rawMetadata = block[id]?.value || Object.values(block)[0]?.value
 
-  const rawMetadata = block[id]?.value
+  const collectionId = Object.keys(response.collection)[0]
+  const collection = response.collection[collectionId]?.value
+  const schema = collection?.schema
 
   if (
     !rawMetadata ||
-    (rawMetadata.type !== "collection_view_page" &&
-      rawMetadata.type !== "collection_view")
+    (!collection && rawMetadata.type !== "collection_view_page")
   ) {
     console.warn(`⚠️ 유효한 데이터베이스를 찾을 수 없습니다. (ID: ${id})`)
     return []
