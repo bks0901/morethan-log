@@ -22,7 +22,7 @@ export const getPosts = async () => {
   const id = idToUuid(rawId)
 
   const api = new NotionAPI()
-  const response = await api.getPage(id)
+  const response = await api.getPage(id, { fetchMissingBlocks: true })
 
   const block = response.block
   const rawMetadata = block[id]?.value || Object.values(block)[0]?.value
