@@ -13,7 +13,10 @@ async function getPageProperties(
   const uuid = idToUuid(id)
   const raw = uuidToId(uuid)
   const b = block?.[uuid] ?? block?.[raw] ?? block?.[id]
-  const rawProperties = Object.entries(b?.value?.properties || [])
+  // const rawProperties = Object.entries(b?.value?.properties || [])
+  const rawProperties = Object.entries(
+    (b as any)?.value?.value?.properties || (b as any)?.value?.properties || []
+  )
 
   const excludeProperties = ["date", "select", "multi_select", "person", "file"]
   const properties: any = {}
@@ -26,6 +29,8 @@ async function getPageProperties(
     // if (!s) {
     //   console.log("[schema-miss]", { id: uuid, key })
     // }
+
+    if (!schema || !schema[key]) continue
 
     if (schema[key]?.type && !excludeProperties.includes(schema[key].type)) {
       properties[schema[key].name] = getTextContent(val)
