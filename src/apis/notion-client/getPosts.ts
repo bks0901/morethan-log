@@ -68,21 +68,8 @@ export const getPosts = async () => {
     properties.fullWidth = (b?.value?.format as any)?.page_full_width ?? false
 
     const pid = pageIds[0]
-    const cand = [pid, pid?.replace(/-/g, "")]
-    for (const k of cand) {
-      const v = block?.[k]?.value
-      console.log(
-        "[dbg] try",
-        k,
-        "hit=",
-        !!v,
-        "type=",
-        v?.type,
-        "hasProps=",
-        !!v?.properties
-      )
-    }
-    console.log("[dbg] block has pid?", !!block?.[pid])
+    console.log("[dbg] block[pid] raw =", block?.[pid])
+    console.log("[dbg] block[pid] keys =", Object.keys(block?.[pid] || {}))
 
     data.push(properties)
   }
