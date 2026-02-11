@@ -62,6 +62,13 @@ export const getPosts = async () => {
   const collection = response.collection?.[collectionId]?.value
   const schema = collection?.schema
 
+  const simplifiedSchema = Object.entries(schema).map(([key, value]: any) => ({
+    id: key,
+    name: value.name,
+    type: value.type,
+  }))
+  console.table(simplifiedSchema)
+
   if (
     !rawMetadata ||
     (!collection && rawMetadata.type !== "collection_view_page")
