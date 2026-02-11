@@ -9,76 +9,91 @@ async function getPageProperties(
   schema: CollectionPropertySchemaMap
 ) {
   const api = new NotionAPI()
-  const rawProperties = Object.entries(block?.[id]?.value?.properties || [])
-  const excludeProperties = ["date", "select", "multi_select", "person", "file"]
-  const properties: any = {}
-  for (let i = 0; i < rawProperties.length; i++) {
-    const [key, val]: any = rawProperties[i]
-    properties.id = id
-    if (schema[key]?.type && !excludeProperties.includes(schema[key].type)) {
-      properties[schema[key].name] = getTextContent(val)
-    } else {
-      switch (schema[key]?.type) {
-        case "file": {
-          try {
-            const Block = block?.[id].value
-            const url: string = val[0][1][0][1]
-            const newurl = customMapImageUrl(url, Block)
-            properties[schema[key].name] = newurl
-          } catch (error) {
-            properties[schema[key].name] = undefined
-          }
-          break
-        }
-        case "date": {
-          const dateProperty: any = getDateValue(val)
-          delete dateProperty.type
-          properties[schema[key].name] = dateProperty
-          break
-        }
-        case "select": {
-          const selects = getTextContent(val)
-          if (selects[0]?.length) {
-            properties[schema[key].name] = selects.split(",")
-          }
-          break
-        }
-        case "multi_select": {
-          const selects = getTextContent(val)
-          if (selects[0]?.length) {
-            properties[schema[key].name] = selects.split(",")
-          }
-          break
-        }
-        case "person": {
-          const rawUsers = val.flat()
+  const blockValue = block?.[id]?.value
+  const rawProperties = blockValue?.properties || {}
+  const properties: any = { id }
 
-          const users = []
-          for (let i = 0; i < rawUsers.length; i++) {
-            if (rawUsers[i][0][1]) {
-              const userId = rawUsers[i][0]
-              const res: any = await api.getUsers(userId)
-              const resValue =
-                res?.recordMapWithRoles?.notion_user?.[userId[1]]?.value
-              const user = {
-                id: resValue?.id,
-                name:
-                  resValue?.name ||
-                  `${resValue?.family_name}${resValue?.given_name}` ||
-                  undefined,
-                profile_photo: resValue?.profile_photo || null,
-              }
-              users.push(user)
-            }
-          }
-          properties[schema[key].name] = users
-          break
-        }
-        default:
-          break
+  for (const key in rawProperties) {
+    const val = rawProperties[key]
+    const s = schema?.[key]
+
+    // 스키마에 정의가 없는 경우
+    if (!s) {
+      if (key === "title") {
+        properties.title = getTextContent(val)
       }
+      continue
+    }
+
+    const { name, type } = s
+
+    switch (type) {
+      case "date": {
+        const dateValue = getDateValue(val)
+        if (dateValue) {
+          delete (dateValue as any).type // 불필요한 필드 제거
+          properties[name] = dateValue
+        }
+        break
+      }
+      case "select":
+      case "multi_select": {
+        const text = getTextContent(val)
+        properties[name] = text
+          ? text
+              .split(",")
+              .map((v) => v.trim())
+              .filter(Boolean)
+          : []
+        break
+      }
+      case "person": {
+        const rawUsers = val.flat().filter((item: any) => item?.[0] === "u")
+        const users = []
+        for (const userItem of rawUsers) {
+          const userId = userItem[1]
+          try {
+            const res: any = await api.getUsers([userId])
+            const resValue =
+              res?.recordMapWithRoles?.notion_user?.[userId]?.value
+            if (resValue) {
+              users.push({
+                id: resValue.id,
+                name:
+                  resValue.name ||
+                  `${resValue.family_name || ""}${resValue.given_name || ""}`,
+                profile_photo: resValue.profile_photo || null,
+              })
+            }
+          } catch (e) {
+            /* ignore */
+          }
+        }
+        properties[name] = users
+        break
+      }
+      case "file": {
+        try {
+          const url = val[0]?.[1]?.[0]?.[1]
+          properties[name] = url ? customMapImageUrl(url, blockValue) : null
+        } catch {
+          properties[name] = null
+        }
+        break
+      }
+      case "text":
+      case "title":
+      default:
+        properties[name] = getTextContent(val)
+        break
     }
   }
+
+  // fallback: title이 스키마에 정의되어 있지 않은 경우, rawProperties에서 title을 찾아서 매핑
+  if (!properties.title && rawProperties.title) {
+    properties.title = getTextContent(rawProperties.title)
+  }
+
   return properties
 }
 
