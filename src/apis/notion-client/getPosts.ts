@@ -72,9 +72,6 @@ export const getPosts = async () => {
 
   // Construct Data
   const pageIds = getAllPageIds(response)
-
-  const keys = Object.keys(block || {})
-
   const data = []
   for (let i = 0; i < pageIds.length; i++) {
     const pageId = pageIds[i]
