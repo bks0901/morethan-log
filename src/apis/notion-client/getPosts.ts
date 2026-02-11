@@ -58,7 +58,8 @@ export const getPosts = async () => {
 
   const collectionId =
     inferredCollectionId || Object.keys(response.collection || {})[0]
-  const collection = response.collection[collectionId]?.value
+
+  const collection = response.collection?.[collectionId]?.value
   const schema = collection?.schema
 
   if (

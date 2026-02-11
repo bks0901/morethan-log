@@ -132,20 +132,25 @@ export default async function getPageProperties(
     return properties
   }
 
+  /** 임시 */
   for (let i = 0; i < rawProperties.length; i++) {
     const [key, val] = rawProperties[i]
+    const s: any = (schema as any)?.[key] // schema가 없을 수도 있으니 옵셔널 체이닝
 
-    const s: any = (schema as any)[key]
-    if (!s) {
-      continue
+    // 1. 스키마가 있으면 매핑된 이름(title, slug 등)으로 넣고
+    if (s && s.name) {
+      const mapped = await mapPropertyValue(api, s, val, v)
+      if (mapped !== undefined) {
+        properties[s.name] = mapped
+        continue // 다음으로
+      }
     }
 
-    const name = s?.name
-    if (!name) continue
-
-    const mapped = await mapPropertyValue(api, s, val, v)
-    if (mapped !== undefined) {
-      properties[name] = mapped
+    // 2. [중요] 스키마가 없거나 매핑에 실패했으면? 그냥 생(raw) 키값으로라도 넣어!
+    // 그래야 결과물에 뭐라도 찍힘
+    const fallbackValue = getTextContent(val)
+    if (fallbackValue) {
+      properties[key] = fallbackValue
     }
   }
 
