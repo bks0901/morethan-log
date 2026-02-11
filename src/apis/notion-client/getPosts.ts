@@ -62,12 +62,20 @@ export const getPosts = async () => {
   const collection = response.collection?.[collectionId]?.value
   const schema = collection?.schema
 
-  const simplifiedSchema = Object.entries(schema).map(([key, value]: any) => ({
-    id: key,
-    name: value.name,
-    type: value.type,
-  }))
-  console.table(simplifiedSchema)
+  if (!schema) {
+    // 스키마가 없으면 여기서 왜 없는지 알려줍니다.
+    console.error("❌ Schema is undefined. Collection ID:", collectionId)
+  } else {
+    // schema가 있을 때만 entries를 돌립니다.
+    const simplifiedSchema = Object.entries(schema || {}).map(
+      ([key, value]: any) => ({
+        id: key,
+        name: value.name,
+        type: value.type,
+      })
+    )
+    console.table(simplifiedSchema)
+  }
 
   if (
     !rawMetadata ||
