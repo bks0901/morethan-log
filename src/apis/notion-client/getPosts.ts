@@ -46,42 +46,42 @@ export const getPosts = async () => {
   const api = new NotionAPI()
   const response = await api.getPage(id, { fetchMissingBlocks: true })
 
-  console.log("--- [STRUCTURE INVESTIGATION] ---")
-  console.log("1. RecordMap Keys:", Object.keys(response))
-  // [block, collection, collection_view, notion_user...] 등이 나오는지 확인
+  // console.log("--- [STRUCTURE INVESTIGATION] ---")
+  // console.log("1. RecordMap Keys:", Object.keys(response))
+  // // [block, collection, collection_view, notion_user...] 등이 나오는지 확인
 
-  // 2. 루트 블록에서 collection_id 직접 추적
-  const rootBlock = response.block[id]?.value as any
-  console.log("2. Root Block Type:", rootBlock?.type)
-  console.log("3. Root Block collection_id:", rootBlock?.collection_id)
+  // // 2. 루트 블록에서 collection_id 직접 추적
+  // const rootBlock = response.block[id]?.value as any
+  // console.log("2. Root Block Type:", rootBlock?.type)
+  // console.log("3. Root Block collection_id:", rootBlock?.collection_id)
 
-  // 4. 만약 collection_id가 있는데 response.collection에 없다면?
-  if (
-    rootBlock?.collection_id &&
-    !response.collection?.[rootBlock.collection_id]
-  ) {
-    console.warn(
-      "⚠️ 고스트 현상: 블록엔 collection_id가 있는데, collection 맵에는 해당 데이터가 없습니다."
-    )
-  }
+  // // 4. 만약 collection_id가 있는데 response.collection에 없다면?
+  // if (
+  //   rootBlock?.collection_id &&
+  //   !response.collection?.[rootBlock.collection_id]
+  // ) {
+  //   console.warn(
+  //     "⚠️ 고스트 현상: 블록엔 collection_id가 있는데, collection 맵에는 해당 데이터가 없습니다."
+  //   )
+  // }
 
-  // 5. response.collection의 실제 모습 (단 한 개만 샘플로)
-  const collectionKeys = Object.keys(response.collection || {})
-  if (collectionKeys.length > 0) {
-    const firstId = collectionKeys[0]
-    console.log(
-      `4. Sample Collection (${firstId}) Structure:`,
-      JSON.stringify(
-        response.collection[firstId],
-        (k, v) => (k === "schema" ? "[SCHEMA_EXISTS]" : v),
-        2
-      )
-    )
-  } else {
-    console.error("❌ Fatal: response.collection 객체 자체가 비어있습니다.")
-  }
+  // // 5. response.collection의 실제 모습 (단 한 개만 샘플로)
+  // const collectionKeys = Object.keys(response.collection || {})
+  // if (collectionKeys.length > 0) {
+  //   const firstId = collectionKeys[0]
+  //   console.log(
+  //     `4. Sample Collection (${firstId}) Structure:`,
+  //     JSON.stringify(
+  //       response.collection[firstId],
+  //       (k, v) => (k === "schema" ? "[SCHEMA_EXISTS]" : v),
+  //       2
+  //     )
+  //   )
+  // } else {
+  //   console.error("❌ Fatal: response.collection 객체 자체가 비어있습니다.")
+  // }
 
-  console.log("--- [END] ---")
+  // console.log("--- [END] ---")
 
   const block = normalizeBlockMap(response.block)
   const rawMetadata =
@@ -90,32 +90,52 @@ export const getPosts = async () => {
   // const block = response.block
   // const rawMetadata = block[id]?.value || Object.values(block)[0].value
 
-  const collectionId = Object.keys(response.collection || {}).find(
-    (id) => response.collection[id]?.value?.schema
-  )
+  // const collectionId = Object.keys(response.collection || {}).find(
+  //   (id) => response.collection[id]?.value?.schema
+  // )
 
-  const collection = collectionId
-    ? response.collection[collectionId].value
+  // const collection = collectionId
+  //   ? response.collection[collectionId].value
+  //   : null
+  // const rawSchema = collection?.schema
+
+  // if (!rawSchema) {
+  //   // 스키마가 없으면 여기서 왜 없는지 알려줍니다.
+  //   console.error("❌ Schema is undefined. Collection ID:", collectionId)
+  //   return []
+  // } else {
+  //   // schema가 있을 때만 entries를 돌립니다.
+  //   const simplifiedSchema = Object.entries(rawSchema || {}).map(
+  //     ([key, value]: any) => ({
+  //       id: key,
+  //       name: value.name,
+  //       type: value.type,
+  //     })
+  //   )
+  //   console.table(simplifiedSchema)
+  // }
+
+  // const schema: CollectionPropertySchemaMap = rawSchema
+
+  const collectionId = Object.keys(response.collection || {}).find((id) => {
+    const coll = response.collection[id] as any
+    return coll?.value?.value?.schema || coll?.value?.schema
+  })
+
+  const collectionRaw = collectionId
+    ? (response.collection[collectionId].value as any)
     : null
-  const rawSchema = collection?.schema
 
-  if (!rawSchema) {
-    // 스키마가 없으면 여기서 왜 없는지 알려줍니다.
-    console.error("❌ Schema is undefined. Collection ID:", collectionId)
-    return []
-  } else {
-    // schema가 있을 때만 entries를 돌립니다.
-    const simplifiedSchema = Object.entries(rawSchema || {}).map(
-      ([key, value]: any) => ({
-        id: key,
-        name: value.name,
-        type: value.type,
-      })
+  const collection = collectionRaw?.value || collectionRaw
+  const schema = collection?.schema
+
+  if (!schema) {
+    console.error(
+      "❌ [최종 실패] 모든 구멍을 뒤졌으나 Schema를 찾지 못함. ID:",
+      collectionId
     )
-    console.table(simplifiedSchema)
+    return []
   }
-
-  const schema: CollectionPropertySchemaMap = rawSchema
 
   if (
     !rawMetadata ||
