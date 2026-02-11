@@ -48,27 +48,37 @@ async function getPageProperties(
         break
       }
       case "person": {
-        const rawUsers = val.flat().filter((item: any) => item?.[0] === "u")
         const users = []
+        const rawUsers = Array.isArray(val)
+          ? val.filter((item: any) => item?.[0] === "u")
+          : []
+
         for (const userItem of rawUsers) {
-          const userId = userItem[1]
+          const userId = userItem[1] // 정확하게 UUID 위치만 추출
+          if (!userId) continue
+
           try {
             const res: any = await api.getUsers([userId])
             const resValue =
               res?.recordMapWithRoles?.notion_user?.[userId]?.value
+
             if (resValue) {
               users.push({
                 id: resValue.id,
                 name:
                   resValue.name ||
-                  `${resValue.family_name || ""}${resValue.given_name || ""}`,
+                  `${resValue.family_name ?? ""}${
+                    resValue.given_name ?? ""
+                  }`.trim() ||
+                  "Unknown",
                 profile_photo: resValue.profile_photo || null,
               })
             }
           } catch (e) {
-            /* ignore */
+            console.warn(`[getPageProperties] Failed to fetch user: ${userId}`)
           }
         }
+
         properties[name] = users
         break
       }
