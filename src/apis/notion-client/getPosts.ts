@@ -53,7 +53,11 @@ export const getPosts = async () => {
   // const block = response.block
   // const rawMetadata = block[id]?.value || Object.values(block)[0].value
 
-  const collectionId = Object.keys(response.collection)[0]
+  const inferredCollectionId =
+    rawMetadata?.parent_table === "collection" ? rawMetadata?.parent_id : null
+
+  const collectionId =
+    inferredCollectionId || Object.keys(response.collection || {})[0]
   const collection = response.collection[collectionId]?.value
   const schema = collection?.schema
 
@@ -85,10 +89,8 @@ export const getPosts = async () => {
     properties.createdTime = ct ? new Date(ct).toISOString() : null
     properties.fullWidth = (b?.value?.format as any)?.page_full_width ?? false
 
-    const pid = pageIds[0]
-    console.log("[dbg] block[pid] raw =", block?.[pid])
-    console.log("[dbg] block[pid] properties =", block?.[pid].value.properties)
-    console.log("[dbg] block[pid] keys =", Object.keys(block?.[pid] || {}))
+    console.log("[dbg] pageId =", pageId)
+    console.log("[dbg] mapped properties =", properties)
 
     data.push(properties)
   }
