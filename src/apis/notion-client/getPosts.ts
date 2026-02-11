@@ -4,177 +4,120 @@ import { idToUuid, uuidToId } from "notion-utils"
 
 import getAllPageIds from "src/libs/utils/notion/getAllPageIds"
 import getPageProperties from "src/libs/utils/notion/getPageProperties"
-import { TPosts } from "src/types"
+import { TPosts, TPost } from "src/types"
 
-import type { Block, BlockMap, CollectionPropertySchemaMap } from "notion-types"
+import type {
+  Block,
+  BlockMap,
+  CollectionPropertySchemaMap,
+  ExtendedRecordMap,
+  Collection,
+} from "notion-types"
 
-export type WrappedNotionRecord<T> = {
-  spaceId?: string
-  value: { value: T; role?: any } | T
-  role?: any
+/**
+ * Notion API 응답의 중첩된 value 객체를 처리하기 위한 유틸리티 타입
+ */
+type NotionValueWrapper<T> = {
+  value: T | { value: T; role?: string }
+  role?: string
 }
 
-export type WrappedBlockMap = Record<string, WrappedNotionRecord<Block>>
+/**
+ * 중첩된 value 구조에서 순수 데이터(T)만 추출하는 헬퍼 함수
+ */
+function unwrapValue<T>(wrapper: NotionValueWrapper<T> | any): T | null {
+  if (!wrapper) return null
+  return wrapper.value?.value ? wrapper.value.value : wrapper.value
+}
 
-export function normalizeBlockMap(block: WrappedBlockMap): BlockMap {
-  const out: any = {}
-  for (const [id, rec] of Object.entries(block || {})) {
-    const r: any = rec
-    const inner = r?.value?.value
-    out[id] = inner
-      ? { role: r?.value?.role ?? r?.role ?? "reader", value: inner }
-      : r
+/**
+ * RecordMap의 Block 데이터를 표준 BlockMap 형식으로 정규화
+ */
+export function normalizeBlockMap(blockMap: Record<string, any>): BlockMap {
+  const normalized: BlockMap = {}
+  for (const [id, record] of Object.entries(blockMap)) {
+    const value = unwrapValue<Block>(record)
+    if (value) {
+      normalized[id] = {
+        role: record.role ?? (record as any).value?.role ?? "reader",
+        value: value,
+      }
+    }
   }
-  return out as BlockMap
+  return normalized
 }
 
 /**
  * @param {{ includePages: boolean }} - false: posts only / true: include pages
+ * Notion Database에서 포스트 목록을 가져와 정제된 데이터 반환
  */
-
-// TODO: react query를 사용해서 처음 불러온 뒤로는 해당데이터만 사용하도록 수정
-export const getPosts = async () => {
+export const getPosts = async (): Promise<TPosts> => {
   const rawId =
     process.env["NOTION_PAGE_ID"] || (CONFIG.notionConfig.pageId as string)
-
-  if (!rawId) {
-    throw new Error("NOTION_PAGE_ID is missing (env and config are empty)")
-  }
+  if (!rawId) throw new Error("NOTION_PAGE_ID is missing")
 
   const id = idToUuid(rawId)
-
   const api = new NotionAPI()
-  const response = await api.getPage(id, { fetchMissingBlocks: true })
-
-  // console.log("--- [STRUCTURE INVESTIGATION] ---")
-  // console.log("1. RecordMap Keys:", Object.keys(response))
-  // // [block, collection, collection_view, notion_user...] 등이 나오는지 확인
-
-  // // 2. 루트 블록에서 collection_id 직접 추적
-  // const rootBlock = response.block[id]?.value as any
-  // console.log("2. Root Block Type:", rootBlock?.type)
-  // console.log("3. Root Block collection_id:", rootBlock?.collection_id)
-
-  // // 4. 만약 collection_id가 있는데 response.collection에 없다면?
-  // if (
-  //   rootBlock?.collection_id &&
-  //   !response.collection?.[rootBlock.collection_id]
-  // ) {
-  //   console.warn(
-  //     "⚠️ 고스트 현상: 블록엔 collection_id가 있는데, collection 맵에는 해당 데이터가 없습니다."
-  //   )
-  // }
-
-  // // 5. response.collection의 실제 모습 (단 한 개만 샘플로)
-  // const collectionKeys = Object.keys(response.collection || {})
-  // if (collectionKeys.length > 0) {
-  //   const firstId = collectionKeys[0]
-  //   console.log(
-  //     `4. Sample Collection (${firstId}) Structure:`,
-  //     JSON.stringify(
-  //       response.collection[firstId],
-  //       (k, v) => (k === "schema" ? "[SCHEMA_EXISTS]" : v),
-  //       2
-  //     )
-  //   )
-  // } else {
-  //   console.error("❌ Fatal: response.collection 객체 자체가 비어있습니다.")
-  // }
-
-  // console.log("--- [END] ---")
-
-  const block = normalizeBlockMap(response.block)
-  const rawMetadata =
-    block[id]?.value || (Object.values(block)[0] as any)?.value
-
-  // const block = response.block
-  // const rawMetadata = block[id]?.value || Object.values(block)[0].value
-
-  // const collectionId = Object.keys(response.collection || {}).find(
-  //   (id) => response.collection[id]?.value?.schema
-  // )
-
-  // const collection = collectionId
-  //   ? response.collection[collectionId].value
-  //   : null
-  // const rawSchema = collection?.schema
-
-  // if (!rawSchema) {
-  //   // 스키마가 없으면 여기서 왜 없는지 알려줍니다.
-  //   console.error("❌ Schema is undefined. Collection ID:", collectionId)
-  //   return []
-  // } else {
-  //   // schema가 있을 때만 entries를 돌립니다.
-  //   const simplifiedSchema = Object.entries(rawSchema || {}).map(
-  //     ([key, value]: any) => ({
-  //       id: key,
-  //       name: value.name,
-  //       type: value.type,
-  //     })
-  //   )
-  //   console.table(simplifiedSchema)
-  // }
-
-  // const schema: CollectionPropertySchemaMap = rawSchema
-
-  const collectionId = Object.keys(response.collection || {}).find((id) => {
-    const coll = response.collection[id] as any
-    return coll?.value?.value?.schema || coll?.value?.schema
+  const response: ExtendedRecordMap = await api.getPage(id, {
+    fetchMissingBlocks: true,
   })
 
-  const collectionRaw = collectionId
-    ? (response.collection[collectionId].value as any)
-    : null
+  /** 블록 데이터 정규화(이중 래핑 제거) */
+  const block = normalizeBlockMap(response.block)
 
-  const collection = collectionRaw?.value || collectionRaw
-  const schema = collection?.schema
+  /** 루트 메타데이터 추출 (대시 유무 모두 대응) */
+  const rootId = id.includes("-") ? id : idToUuid(id)
+  const rootBlock = block[rootId] || block[uuidToId(rootId)]
+  const rawMetadata = rootBlock?.value
+
+  /** 컬렉션 및 스키마(지도) 추출 */
+  const collectionEntry = Object.values(response.collection || {}).find(
+    (coll) => unwrapValue<Collection>(coll)?.schema
+  )
+  const collectionValue = unwrapValue<Collection>(collectionEntry)
+  const schema = collectionValue?.schema as CollectionPropertySchemaMap
 
   if (!schema) {
-    console.error(
-      "❌ [최종 실패] 모든 구멍을 뒤졌으나 Schema를 찾지 못함. ID:",
-      collectionId
-    )
+    console.error("❌ [Fatal] Schema를 찾을 수 없습니다. DB 설정을 확인하세요.")
     return []
   }
 
   if (
     !rawMetadata ||
-    (!collection && rawMetadata.type !== "collection_view_page")
+    (!collectionValue && rawMetadata.type !== "collection_view_page")
   ) {
     console.warn(`⚠️ 유효한 데이터베이스를 찾을 수 없습니다. (ID: ${id})`)
     return []
   }
 
-  // Construct Data
+  /** 페이지 ID 기반 데이터 구성 */
   const pageIds = getAllPageIds(response)
-  const data = []
-  for (let i = 0; i < pageIds.length; i++) {
-    const pageId = pageIds[i]
+  const posts: TPost[] = []
 
+  for (const pageId of pageIds) {
     const uuid = pageId.includes("-") ? pageId : idToUuid(pageId)
     const raw = uuidToId(uuid)
-    const b = block?.[raw] ?? block?.[uuid] ?? block?.[pageId]
 
-    const properties = (await getPageProperties(pageId, block, schema)) || {}
+    const targetBlock = block[uuid] || block[raw]
+    if (!targetBlock) continue
 
-    properties.id = uuid
-    const ct = b?.value?.created_time
-    properties.createdTime = ct ? new Date(ct).toISOString() : null
-    properties.fullWidth = (b?.value?.format as any)?.page_full_width ?? false
+    const properties = await getPageProperties(pageId, block, schema)
 
-    console.log("[dbg] pageId =", pageId)
-    console.log("[dbg] mapped properties =", properties)
+    const post: TPost = {
+      ...properties,
+      id: uuid,
+      createdTime: targetBlock.value.created_time
+        ? new Date(targetBlock.value.created_time).toISOString()
+        : new Date().toISOString(),
+      fullWidth: (targetBlock.value as any)?.format?.page_full_width ?? false,
+    }
 
-    data.push(properties)
+    posts.push(post)
   }
 
-  // Sort by date
-  data.sort((a: any, b: any) => {
-    const dateA: any = new Date(a?.date?.start_date || a.createdTime)
-    const dateB: any = new Date(b?.date?.start_date || b.createdTime)
+  return posts.sort((a, b) => {
+    const dateA = new Date(a.date?.start_date || a.createdTime).getTime()
+    const dateB = new Date(b.date?.start_date || b.createdTime).getTime()
     return dateB - dateA
   })
-
-  const posts = data as TPosts
-  return posts
 }
