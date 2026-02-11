@@ -6,7 +6,7 @@ import getAllPageIds from "src/libs/utils/notion/getAllPageIds"
 import getPageProperties from "src/libs/utils/notion/getPageProperties"
 import { TPosts } from "src/types"
 
-import type { Block, BlockMap } from "notion-types"
+import type { Block, BlockMap, CollectionPropertySchemaMap } from "notion-types"
 
 export type WrappedNotionRecord<T> = {
   spaceId?: string
@@ -53,21 +53,22 @@ export const getPosts = async () => {
   // const block = response.block
   // const rawMetadata = block[id]?.value || Object.values(block)[0].value
 
-  const inferredCollectionId =
-    rawMetadata?.parent_table === "collection" ? rawMetadata?.parent_id : null
+  const collectionId = Object.keys(response.collection || {}).find(
+    (id) => response.collection[id]?.value?.schema
+  )
 
-  const collectionId =
-    inferredCollectionId || Object.keys(response.collection || {})[0]
+  const collection = collectionId
+    ? response.collection[collectionId].value
+    : null
+  const rawSchema = collection?.schema
 
-  const collection = response.collection?.[collectionId]?.value
-  const schema = collection?.schema
-
-  if (!schema) {
+  if (!rawSchema) {
     // 스키마가 없으면 여기서 왜 없는지 알려줍니다.
     console.error("❌ Schema is undefined. Collection ID:", collectionId)
+    return []
   } else {
     // schema가 있을 때만 entries를 돌립니다.
-    const simplifiedSchema = Object.entries(schema || {}).map(
+    const simplifiedSchema = Object.entries(rawSchema || {}).map(
       ([key, value]: any) => ({
         id: key,
         name: value.name,
@@ -76,6 +77,8 @@ export const getPosts = async () => {
     )
     console.table(simplifiedSchema)
   }
+
+  const schema: CollectionPropertySchemaMap = rawSchema
 
   if (
     !rawMetadata ||
