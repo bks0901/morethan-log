@@ -2,6 +2,7 @@ import { getTextContent, getDateValue } from "notion-utils"
 import { NotionAPI } from "notion-client"
 import { BlockMap, CollectionPropertySchemaMap } from "notion-types"
 import { customMapImageUrl } from "./customMapImageUrl"
+import { CONFIG } from "site.config"
 
 async function getPageProperties(
   id: string,
@@ -48,37 +49,50 @@ async function getPageProperties(
         break
       }
       case "person": {
-        const users = []
-        const rawUsers = Array.isArray(val)
-          ? val.filter((item: any) => item?.[0] === "u")
+        const users: any[] = []
+        const userIds = Array.isArray(val)
+          ? val
+              .filter((item: any) => item?.[0] === "u")
+              .map((item: any) => item?.[1])
           : []
 
-        for (const userItem of rawUsers) {
-          const userId = userItem[1] // 정확하게 UUID 위치만 추출
-          if (!userId) continue
+        if (userIds.length === 0) {
+          users.push({
+            id: "unknown",
+            name: CONFIG.profile.name || "Admin",
+            profile_photo: CONFIG.profile.image || null,
+          })
+        } else {
+          for (const userId of userIds) {
+            try {
+              const res: any = await api.getUsers([userId])
+              const resValue =
+                res?.recordMapWithRoles?.notion_user?.[userId]?.value
 
-          try {
-            const res: any = await api.getUsers([userId])
-            const resValue =
-              res?.recordMapWithRoles?.notion_user?.[userId]?.value
-
-            if (resValue) {
+              if (resValue) {
+                users.push({
+                  id: resValue.id,
+                  name:
+                    resValue.name ||
+                    `${resValue.family_name ?? ""}${
+                      resValue.given_name ?? ""
+                    }`.trim() ||
+                    "Unknown",
+                  profile_photo: resValue.profile_photo || null,
+                })
+              } else {
+                throw new Error("User info not found in Notion")
+              }
+            } catch (e) {
+              console.warn(`⚠️ User(${userId}) 누락. CONFIG 정보로 대체`)
               users.push({
-                id: resValue.id,
-                name:
-                  resValue.name ||
-                  `${resValue.family_name ?? ""}${
-                    resValue.given_name ?? ""
-                  }`.trim() ||
-                  "Unknown",
-                profile_photo: resValue.profile_photo || null,
+                id: userId,
+                name: CONFIG.profile.name || "Admin",
+                profile_photo: CONFIG.profile.image || null,
               })
             }
-          } catch (e) {
-            console.warn(`[getPageProperties] Failed to fetch user: ${userId}`)
           }
         }
-
         properties[name] = users
         break
       }
