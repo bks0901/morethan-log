@@ -46,6 +46,43 @@ export const getPosts = async () => {
   const api = new NotionAPI()
   const response = await api.getPage(id, { fetchMissingBlocks: true })
 
+  console.log("--- [STRUCTURE INVESTIGATION] ---")
+  console.log("1. RecordMap Keys:", Object.keys(response))
+  // [block, collection, collection_view, notion_user...] 등이 나오는지 확인
+
+  // 2. 루트 블록에서 collection_id 직접 추적
+  const rootBlock = response.block[id]?.value as any
+  console.log("2. Root Block Type:", rootBlock?.type)
+  console.log("3. Root Block collection_id:", rootBlock?.collection_id)
+
+  // 4. 만약 collection_id가 있는데 response.collection에 없다면?
+  if (
+    rootBlock?.collection_id &&
+    !response.collection?.[rootBlock.collection_id]
+  ) {
+    console.warn(
+      "⚠️ 고스트 현상: 블록엔 collection_id가 있는데, collection 맵에는 해당 데이터가 없습니다."
+    )
+  }
+
+  // 5. response.collection의 실제 모습 (단 한 개만 샘플로)
+  const collectionKeys = Object.keys(response.collection || {})
+  if (collectionKeys.length > 0) {
+    const firstId = collectionKeys[0]
+    console.log(
+      `4. Sample Collection (${firstId}) Structure:`,
+      JSON.stringify(
+        response.collection[firstId],
+        (k, v) => (k === "schema" ? "[SCHEMA_EXISTS]" : v),
+        2
+      )
+    )
+  } else {
+    console.error("❌ Fatal: response.collection 객체 자체가 비어있습니다.")
+  }
+
+  console.log("--- [END] ---")
+
   const block = normalizeBlockMap(response.block)
   const rawMetadata =
     block[id]?.value || (Object.values(block)[0] as any)?.value
